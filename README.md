@@ -51,6 +51,8 @@ const queryOptions = {
   experienceLevel: 'entry level',
   limit: '10',
   page: "0",
+  has_verification: false,
+  under_10_applicants: false,
 };
 
 linkedIn.query(queryOptions).then(response => {
@@ -73,7 +75,9 @@ query() accepts a _queryOptions_ object and returns an array of _Job_ objects.
 | experienceLevel |           ""           |          _string_ - `internship`, `entry level`, `associate`, `senior`, `director`, `executive`           |
 |      limit      |           ""           |                     _string_ - Number of jobs returned: (i.e. '1', '10', '100', etc)                      |
 |     sortBy      |           ""           |                                      _string_ - `recent`, `relevant`                                      |
-|     page      |           "0"           |                                      _string_ - `0`, `1`, `2` ....                                      |
+|     page      |           "0"           |                                      _string_ - `0`, `1`, `2` ....                                         |
+|has_verification |         `false`        |                                     _boolean_ - `true` / `false`                                          |
+| under_10_applicants | `false`            | _boolean_ `true` / `false`                                                                                |
 ## Job Objects
 
 |  Paramter   |     Description (Default: null)     |
