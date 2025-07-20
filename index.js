@@ -41,6 +41,11 @@ class JobCache {
 
 const cache = new JobCache();
 
+// Generate a unique cache key based on the query parameters
+Query.prototype.getCacheKey = function () {
+  return `${this.url(0)}_limit:${this.limit}`;
+};
+
 // Main query function
 module.exports.query = (queryObject) => {
   const query = new Query(queryObject);
@@ -156,7 +161,7 @@ Query.prototype.getJobs = async function () {
 
   try {
     // Check cache first
-    const cacheKey = this.url(0);
+    const cacheKey = this.getCacheKey();
     const cachedJobs = cache.get(cacheKey);
     if (cachedJobs) {
       console.log("Returning cached results");
@@ -205,7 +210,7 @@ Query.prototype.getJobs = async function () {
 
     // Cache results if we got any
     if (allJobs.length > 0) {
-      cache.set(this.url(0), allJobs);
+      cache.set(this.getCacheKey(), allJobs);
     }
 
     return allJobs;
