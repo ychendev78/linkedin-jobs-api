@@ -1,6 +1,6 @@
 {
   "name": "linkedin-jobs-api",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "advanced node.js package for getting job listings from LinkedIn",
   "main": "index.js",
   "scripts": {
