@@ -65,6 +65,8 @@ function Query(queryObj) {
   this.sortBy = queryObj.sortBy || "";
   this.limit = Number(queryObj.limit) || 0;
   this.page = Number(queryObj.page) || 0;
+  this.has_verification = queryObj.has_verification || false;
+  this.under_10_applicants = queryObj.under_10_applicants || false;
 }
 
 // Query prototype methods
@@ -124,6 +126,14 @@ Query.prototype.getSalary = function () {
   return salaryRange[this.salary] || "";
 };
 
+Query.prototype.getHasVerification = function () {
+  return this.has_verification ? "true" : "false";
+};
+
+Query.prototype.getUnder10Applicants = function () {
+  return this.under_10_applicants ? "true" : "false";
+};
+
 Query.prototype.getPage = function () {
   return this.page * 25;
 };
@@ -142,6 +152,10 @@ Query.prototype.url = function (start) {
     params.append("f_E", this.getExperienceLevel());
   if (this.getRemoteFilter()) params.append("f_WT", this.getRemoteFilter());
   if (this.getJobType()) params.append("f_JT", this.getJobType());
+  if (this.getHasVerification())
+    params.append("f_VJ", this.getHasVerification());
+  if (this.getUnder10Applicants())
+    params.append("f_EA", this.getUnder10Applicants());
 
   params.append("start", start + this.getPage());
 
@@ -158,7 +172,8 @@ Query.prototype.getJobs = async function () {
   let hasMore = true;
   let consecutiveErrors = 0;
   const MAX_CONSECUTIVE_ERRORS = 3;
-
+  console.log(this.url());
+  console.log(this.getCacheKey());
   try {
     // Check cache first
     const cacheKey = this.getCacheKey();

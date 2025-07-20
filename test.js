@@ -11,6 +11,8 @@ const queryOptions = {
   limit: "1",
   sortBy: "recent",
   page: "1",
+  has_verification: false,
+  under_10_applicants: false,
 };
 
 linkedIn.query(queryOptions).then((response) => {
