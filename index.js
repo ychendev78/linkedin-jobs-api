@@ -43,13 +43,20 @@ const cache = new JobCache();
 
 // Generate a unique cache key based on the query parameters
 Query.prototype.getCacheKey = function () {
-  return `${this.url(0)}_limit:${this.limit}`;
+  return `${this.url(0)}_limit:${this.limit}_delayMs:${this.delayMs}`;
 };
 
 // Main query function
 module.exports.query = (queryObject) => {
   const query = new Query(queryObject);
   return query.getJobs();
+};
+
+// Quick helper to just get the count
+module.exports.getJobCount = async (queryObject) => {
+  const query = new Query(queryObject);
+  const jobs = await query.getJobs();
+  return jobs.length;
 };
 
 // Query constructor
@@ -63,11 +70,21 @@ function Query(queryObj) {
   this.salary = queryObj.salary || "";
   this.experienceLevel = queryObj.experienceLevel || "";
   this.sortBy = queryObj.sortBy || "";
-  this.limit = Number(queryObj.limit) || 0;
+  // ⬇️ small change: default limit 50 (instead of 0 / unlimited)
+  this.limit = Number(queryObj.limit) || 50;
   this.page = Number(queryObj.page) || 0;
   this.has_verification = queryObj.has_verification || false;
   this.under_10_applicants = queryObj.under_10_applicants || false;
+
+  // ⬇️ new: debug logging & configurable delay
+  this.debug = Boolean(queryObj.debug) || false;
+  this.delayMs = Number(queryObj.delayMs) >= 0 ? Number(queryObj.delayMs) : 2000;
 }
+
+// Debug logger
+Query.prototype.log = function (...args) {
+  if (this.debug) console.log(...args);
+};
 
 // Query prototype methods
 Query.prototype.getDateSincePosted = function () {
@@ -172,14 +189,16 @@ Query.prototype.getJobs = async function () {
   let hasMore = true;
   let consecutiveErrors = 0;
   const MAX_CONSECUTIVE_ERRORS = 3;
-  console.log(this.url());
-  console.log(this.getCacheKey());
+
+  this.log("[URL]", this.url());
+  this.log("[CacheKey]", this.getCacheKey());
+
   try {
     // Check cache first
     const cacheKey = this.getCacheKey();
     const cachedJobs = cache.get(cacheKey);
     if (cachedJobs) {
-      console.log("Returning cached results");
+      this.log("Returning cached results");
       return cachedJobs;
     }
 
@@ -193,7 +212,7 @@ Query.prototype.getJobs = async function () {
         }
 
         allJobs.push(...jobs);
-        console.log(`Fetched ${jobs.length} jobs. Total: ${allJobs.length}`);
+        this.log(`Fetched ${jobs.length} jobs. Total: ${allJobs.length}`);
 
         if (this.limit && allJobs.length >= this.limit) {
           allJobs = allJobs.slice(0, this.limit);
@@ -204,17 +223,14 @@ Query.prototype.getJobs = async function () {
         consecutiveErrors = 0;
         start += BATCH_SIZE;
 
-        // Add reasonable delay between requests
-        await delay(2000 + Math.random() * 1000);
+        // ⬇️ small change: configurable delay
+        await delay(this.delayMs + Math.random() * 500);
       } catch (error) {
         consecutiveErrors++;
-        console.error(
-          `Error fetching batch (attempt ${consecutiveErrors}):`,
-          error.message
-        );
+        this.log(`Error fetching batch (attempt ${consecutiveErrors}):`, error.message);
 
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          console.log("Max consecutive errors reached. Stopping.");
+          this.log("Max consecutive errors reached. Stopping.");
           break;
         }
 
@@ -260,7 +276,7 @@ Query.prototype.fetchJobBatch = async function (start) {
       timeout: 10000,
     });
 
-    return parseJobList(response.data);
+    return parseJobList(response.data, this);
   } catch (error) {
     if (error.response?.status === 429) {
       throw new Error("Rate limit reached");
@@ -269,7 +285,7 @@ Query.prototype.fetchJobBatch = async function (start) {
   }
 };
 
-function parseJobList(jobData) {
+function parseJobList(jobData, queryCtx) {
   try {
     const $ = cheerio.load(jobData);
     const jobs = $("li");
@@ -289,9 +305,10 @@ function parseJobList(jobData) {
             .trim()
             .replace(/\s+/g, " ");
           const jobUrl = job.find(".base-card__full-link").attr("href");
-          const companyLogo = job
-            .find(".artdeco-entity-image")
-            .attr("data-delayed-url");
+          const companyLogo =
+            job.find(".artdeco-entity-image").attr("data-delayed-url") ||
+            // ⬇️ small change: placeholder if missing
+            "https://static.licdn.com/sc/h/1bt1uwq5akv756knzdj4l6cdc";
           const agoTime = job.find(".job-search-card__listdate").text().trim();
 
           // Only return job if we have at least position and company
@@ -310,7 +327,7 @@ function parseJobList(jobData) {
             agoTime: agoTime || "",
           };
         } catch (err) {
-          console.warn(`Error parsing job at index ${index}:`, err.message);
+          queryCtx?.log?.(`Error parsing job at index ${index}:`, err.message);
           return null;
         }
       })
